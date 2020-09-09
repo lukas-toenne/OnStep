@@ -17,7 +17,7 @@
 //   *** to be sure it matches your wiring.            *** USE AT YOUR OWN RISK ***                                           ***
 
 //      Parameter Name              Value   Default  Notes                                                                      Hint
-#define PINMAP                        OFF //    OFF, Choose from: MiniPCB, MiniPCB2, MaxPCB, MaxPCB2, STM32Blue,             <-Req'd
+#define PINMAP                        MiniPCB2 //    OFF, Choose from: MiniPCB, MiniPCB2, MaxPCB, MaxPCB2, STM32Blue,             <-Req'd
                                           //         Ramps14, MaxESP2, MaxESP3.  Check Constants.h for more info.
 
 // SERIAL PORT COMMAND CHANNELS ------------------------------------ see https://onstep.groups.io/g/main/wiki/6-Configuration#SERIAL
@@ -32,7 +32,7 @@
                                           //         Dobsonian etc. mounts. GEM Eq mounts perform meridian flips.
 
 // USER FEEDBACK -------------------------------------------- see https://onstep.groups.io/g/main/wiki/6-Configuration#USER_FEEDBACK
-#define LED_STATUS                     ON //     ON, Blinks w/sidereal tracking otherwise steady on indicates activity.       Option
+#define LED_STATUS                    OFF //     ON, Blinks w/sidereal tracking otherwise steady on indicates activity.       Option
 #define LED_STATUS2                   OFF //    OFF, ON Blinks 1s interval w/PPS sync, steady for gotos, off if in standby.   Option
 #define LED_RETICLE                   OFF //    OFF, n. Where n=0..255 (0..100%) activates feature sets default brightness.   Option
 #define BUZZER                        OFF //    OFF, ON, n. Where n=100..6000 (Hz freq.) for piezo speaker. ON for buzzer.    Option
@@ -113,13 +113,13 @@
 
 // AXIS1 RA/AZM
 // see https://onstep.groups.io/g/main/wiki/6-Configuration#AXIS1
-#define AXIS1_STEPS_PER_DEGREE    12800.0 //  12800, n. Number of steps per degree:                                          <-Req'd
+#define AXIS1_STEPS_PER_DEGREE    30720.0 //  12800, n. Number of steps per degree:                                          <-Req'd
                                           //         n = (stepper_steps * micro_steps * overall_gear_reduction)/360.0
-#define AXIS1_STEPS_PER_WORMROT     12800 //  12800, n. Number of steps per worm rotation (PEC Eq mode only:)                <-Req'd
+#define AXIS1_STEPS_PER_WORMROT     76800 //  12800, n. Number of steps per worm rotation (PEC Eq mode only:)                <-Req'd
                                           //         n = (AXIS1_STEPS_PER_DEGREE*360)/reduction_final_stage
 
-#define AXIS1_DRIVER_MODEL            OFF //    OFF, (See above.) Stepper driver model.                                      <-Often
-#define AXIS1_DRIVER_MICROSTEPS       OFF //    OFF, n. Microstep mode when tracking.                                        <-Often
+#define AXIS1_DRIVER_MODEL            TMC2209_QUIET //    OFF, (See above.) Stepper driver model.                                      <-Often
+#define AXIS1_DRIVER_MICROSTEPS       64 //    OFF, n. Microstep mode when tracking.                                        <-Often
 #define AXIS1_DRIVER_MICROSTEPS_GOTO  OFF //    OFF, n. Microstep mode used during gotos.                                     Option
 #define AXIS1_DRIVER_IHOLD            OFF //    OFF, n, (mA.) Current during standstill. OFF uses IRUN/2.0                    Option
 #define AXIS1_DRIVER_IRUN             OFF //    OFF, n, (mA.) Current during tracking, appropriate for stepper/driver/etc.    Option
@@ -134,11 +134,11 @@
 
 // AXIS2 DEC/ALT
 // see https://onstep.groups.io/g/main/wiki/6-Configuration#AXIS2
-#define AXIS2_STEPS_PER_DEGREE    12800.0 //  12800, n. Number of steps per degree:                                          <-Req'd
+#define AXIS2_STEPS_PER_DEGREE    30720.0 //  12800, n. Number of steps per degree:                                          <-Req'd
                                           //         n = (stepper_steps * micro_steps * overall_gear_reduction)/360.0
 
-#define AXIS2_DRIVER_MODEL            OFF //    OFF, (See above.) Stepper driver model.                                      <-Often
-#define AXIS2_DRIVER_MICROSTEPS       OFF //    OFF, n. Microstep mode when tracking.                                        <-Often
+#define AXIS2_DRIVER_MODEL            TMC2209_QUIET //    OFF, (See above.) Stepper driver model.                                      <-Often
+#define AXIS2_DRIVER_MICROSTEPS       64 //    OFF, n. Microstep mode when tracking.                                        <-Often
 #define AXIS2_DRIVER_MICROSTEPS_GOTO  OFF //    OFF, n. Microstep mode used during gotos.                                     Option
 #define AXIS2_DRIVER_IHOLD            OFF //    OFF, n, (mA.) Current during standstill. OFF uses IRUN/2.0                    Option
 #define AXIS2_DRIVER_IRUN             OFF //    OFF, n, (mA.) Current during tracking, appropriate for stepper/driver/etc.    Option
