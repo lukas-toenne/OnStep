@@ -356,10 +356,10 @@ namespace Alpaca
 
   void handleAlpacaTargetDeclination()
   {
-    if (server.method() == HTTP_GET)
+    AlpacaResponse r;
+    if (r.init())
     {
-      AlpacaResponse r;
-      if (r.init())
+      if (server.method() == HTTP_GET)
       {
         // Get Currently Selected Target Declination
         char temp[40] = "";
@@ -378,11 +378,7 @@ namespace Alpaca
 
         r.sendWithError();
       }
-    }
-    else if (server.method() == HTTP_PUT)
-    {
-      AlpacaResponse r;
-      if (r.init())
+      else if (server.method() == HTTP_PUT)
       {
         double value;
         if (r.parseJsonArg("TargetDeclination", value))
