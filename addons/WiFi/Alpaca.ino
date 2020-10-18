@@ -215,7 +215,7 @@ namespace Alpaca
         return false;
       }
       setError(commandErrorToCode(cmderr), commandErrorToString(cmderr));
-      return errorCode != (int)ErrorCode::None;
+      return errorCode == (int)ErrorCode::None;
     }
 
     void send()
@@ -375,12 +375,10 @@ namespace Alpaca
           char cmd[40], temp[40]="";
           doubleToDms(temp, &value, false, true);
           sprintf(cmd, ":Sd%s#", temp);
-          r.body["Raw"] = String(cmd);
 
           // Set target object declination
           temp[0] = 0;
           r.executeCommandChecked(cmd, temp);
-          r.body["Result"] = String(temp);
 
           r.sendWithError();
         }
