@@ -366,16 +366,11 @@ namespace Alpaca
         if (r.executeCommandChecked(":Gd#", temp))
         {
           double value;
-          if (!dmsToDouble(&value, temp, true))
-          {
-            r.setError(ErrorCode::InvalidValue, "Cannot convert value");
-          }
-          else
+          if (dmsToDouble(&value, temp, true))
           {
             r.jsonBody["Value"] = value;
           }
         }
-
         r.sendWithError();
       }
       else if (server.method() == HTTP_PUT)
@@ -383,14 +378,46 @@ namespace Alpaca
         double value;
         if (r.parseJsonArg("TargetDeclination", value))
         {
+          // Set target object declination
           char cmd[40], temp[40]="";
           doubleToDms(temp, &value, false, true);
           sprintf(cmd, ":Sd%s#", temp);
-
-          // Set target object declination
-          temp[0] = 0;
           r.executeCommandChecked(cmd, temp);
+          r.sendWithError();
+        }
+      }
+    }
+  }
 
+  void handleAlpacaTargetRightAscension()
+  {
+    AlpacaResponse r;
+    if (r.init())
+    {
+      if (server.method() == HTTP_GET)
+      {
+        // Get current/target object RA
+        char temp[40] = "";
+        if (r.executeCommandChecked(":Gr#", temp))
+        {
+          double value;
+          if (hmsToDouble(&value, temp))
+          {
+            r.jsonBody["Value"] = value;
+          }
+        }
+        r.sendWithError();
+      }
+      else if (server.method() == HTTP_PUT)
+      {
+        double value;
+        if (r.parseJsonArg("TargetRightAscension", value))
+        {
+          // Set target object RA
+          char cmd[40], temp[40]="";
+          doubleToHms(temp, &value);
+          sprintf(cmd, ":Sr%s#", temp);
+          r.executeCommandChecked(cmd, temp);
           r.sendWithError();
         }
       }
@@ -406,4 +433,5 @@ void setupAlpacaURIHandlers()
   server.on(Alpaca::getManagementURL("configureddevices", true), Alpaca::handleAlpacaConfiguredDevices);
 
   server.on(Alpaca::getDeviceURL("telescope", 0, "targetdeclination"), Alpaca::handleAlpacaTargetDeclination);
+  server.on(Alpaca::getDeviceURL("telescope", 0, "targetrightascension"), Alpaca::handleAlpacaTargetRightAscension);
 }

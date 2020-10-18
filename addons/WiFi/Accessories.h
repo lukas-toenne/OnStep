@@ -168,6 +168,61 @@ char *commandString(const char command[]) {
   return response;
 }
 
+
+// convert string in format HH:MM:SS to double
+// (also handles)           HH:MM.M
+// (also handles)           HH:MM:SS
+// (also handles)           HH:MM:SS.SSSS
+bool hmsToDouble(double *f, char *hms) {
+  char h[3],m[5];
+  int  h1,m1,m2=0;
+  double s1=0;
+
+  while (*hms == ' ') hms++; // strip prefix white-space
+
+  if (strlen(hms) > 13) hms[13]=0; // limit maximum length
+  int len=strlen(hms);
+  
+  if (len != 8 && len < 10) return false;
+
+  // convert the hours part
+  h[0]=*hms++; h[1]=*hms++; h[2]=0; if (!atoi2(h,&h1,false)) return false;
+
+  // make sure the seperator is an allowed character, then convert the minutes part
+  if (*hms++ != ':') return false;
+  m[0]=*hms++; m[1]=*hms++; m[2]=0; if (!atoi2(m,&m1,false)) return false;
+
+  // make sure the seperator is an allowed character, then convert the seconds part
+  if (*hms++ != ':') return false;
+  if (!atof2(hms,&s1,false)) return false;
+  
+  if (h1 < 0 || h1 > 23 || m1 < 0 || m1 > 59 || m2 < 0 || m2 > 9 || s1 < 0 || s1 > 59.9999) return false;
+
+  *f=(double)h1+(double)m1/60.0+(double)m2/600.0+s1/3600.0;
+  return true;
+}
+
+// convert double to string in a variety of formats (as above) 
+void doubleToHms(char *reply, double *f) {
+  double h1,m1,f1,s1,sd=0;
+
+  // round to 0.00005 second or 0.5 second, depending on precision mode
+  f1=fabs(*f)+0.000139;
+
+  h1=floor(f1);
+  m1=(f1-h1)*60.0;
+  s1=(m1-floor(m1))*60.0;
+
+  // finish off calculations for hms and form string template
+  char s[]="%s%02d:%02d:%02d.%04d";
+  s[16]=0;
+
+  // set sign and return result string
+  char sign[2]="";
+  if ((sd != 0 || s1 != 0 || m1 != 0 || h1 != 0) && *f < 0.0) strcpy(sign,"-");
+  sprintf(reply,s,sign,(int)h1,(int)m1,(int)s1);
+}
+
 // convert string in format sDD:MM:SS to double
 // (also handles)           sDD:MM:SS.SSS
 //                          DDD:MM:SS
