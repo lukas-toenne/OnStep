@@ -349,7 +349,7 @@ namespace Alpaca
       if (r.executeCommandChecked(":Gd#", temp))
       {
         double value;
-        if (!dmsToDouble(&value, temp, true, PM_HIGHEST))
+        if (!dmsToDouble(&value, temp, true))
         {
           r.setError(ErrorCode::InvalidValue, "Cannot convert value");
         }
@@ -373,7 +373,7 @@ namespace Alpaca
           r.initPut(body);
 
           char cmd[40], temp[40]="";
-          doubleToDms(temp, &value, true, true);
+          doubleToDms(temp, &value, false, true);
           sprintf(cmd, ":Sd%s#", temp);
           r.body["Raw"] = String(cmd);
 

@@ -175,7 +175,7 @@ char *commandString(const char command[]) {
 //                          DDD:MM
 //                          sDD*MM
 //                          DDD*MM
-bool dmsToDouble(double *f, char *dms, bool sign_present, PrecisionMode p) {
+bool dmsToDouble(double *f, char *dms, bool sign_present) {
   char d[4],m[5];
   int d1,m1,lowLimit=0,highLimit=360,len;
   double s1=0,sign=1;
@@ -185,15 +185,7 @@ bool dmsToDouble(double *f, char *dms, bool sign_present, PrecisionMode p) {
   if (strlen(dms) > 13) dms[13]=0; // maximum length
   len=strlen(dms);
 
-  if (p == PM_HIGHEST || p == PM_HIGH) { // validate length
-    if (len != 9 && len < 11) return false;
-  } else
-  if (p == PM_LOW) {
-    if (len != 6) {
-      if (len != 9) return false;
-      secondsOff=false;
-    } else secondsOff = true;
-  }
+  if (len != 9 && len < 11) return false;
 
   // determine if the sign was used and accept it if so, then convert the degrees part
   if (sign_present) {
@@ -207,7 +199,7 @@ bool dmsToDouble(double *f, char *dms, bool sign_present, PrecisionMode p) {
   if (*dms != ':' && *dms != '*' && *dms != char(223)) return false; else dms++;
   m[0]=*dms++; m[1]=*dms++; m[2]=0; if (!atoi2(m,&m1,false)) return false;
 
-  if ((p == PM_HIGHEST || p == PM_HIGH) && !secondsOff) {
+  if (!secondsOff) {
     // make sure the seperator is an allowed character, then convert the seconds part
     if (*dms++ != ':' && *dms++ != '\'') return false;
     if (!atof2(dms,&s1,false)) return false;
@@ -217,13 +209,6 @@ bool dmsToDouble(double *f, char *dms, bool sign_present, PrecisionMode p) {
   if ((d1 < lowLimit) || (d1 > highLimit) || (m1 < 0) || (m1 > 59) || (s1 < 0) || (s1 > 59.999)) return false;
 
   *f=sign*((double)d1+(double)m1/60.0+s1/3600.0);
-  return true;
-}
-
-bool dmsToDouble(double *f, char *dms, bool sign_present) {
-  if (!dmsToDouble(f,dms,sign_present,PM_HIGHEST))
-    if (!dmsToDouble(f,dms,sign_present,PM_HIGH))
-      if (!dmsToDouble(f,dms,sign_present,PM_LOW)) return false;
   return true;
 }
 
