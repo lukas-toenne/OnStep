@@ -32,7 +32,7 @@
  */
 
 
-#define DEFAULT_JSON_BUFFER 512
+#define DEFAULT_JSON_BUFFER 128
 #define API_VERSION "v1"
 
 namespace Alpaca
@@ -102,42 +102,6 @@ namespace Alpaca
     server.send(400, "application/json", "{\"Value\":\"" + errorMessage + "\"}");
   }
 
-  bool deserializeJsonBody(JsonDocument& bodyOut)
-  {
-    if (!server.hasArg("plain"))
-    {
-      sendInvalidRequestError("Body not received");
-      return false;
-    }
-
-    String bodyStr = server.arg("plain");
-    DeserializationError result = deserializeJson(bodyOut, bodyStr);
-    if (result != DeserializationError::Ok)
-    {
-      sendInvalidRequestError(result.c_str());
-      return false;
-    }
-    return true;
-  }
-
-  template<typename T>
-  bool parseJsonArg(const JsonDocument& body, const String& argName, T& valueOut)
-  {
-    JsonVariantConst jsonVar = body.getMember(argName);
-    if (jsonVar.isNull())
-    {
-      sendInvalidRequestError("Body does not contain field '" + argName + "'");
-      return false;
-    }
-    if (!jsonVar.is<T>())
-    {
-      sendInvalidRequestError("Field '" + argName + "' has incorrect type");
-      return false;
-    }
-    valueOut = jsonVar.as<T>();
-    return true;
-  }
-
   bool parseArg(const String& argName, String& valueOut)
   {
     String v = server.arg(argName);
@@ -170,14 +134,91 @@ namespace Alpaca
   {
   public:
     AlpacaResponse()
-      : body(DynamicJsonDocument(DEFAULT_JSON_BUFFER))
+      : jsonParams(DynamicJsonDocument(DEFAULT_JSON_BUFFER))
+      , jsonBody(DynamicJsonDocument(DEFAULT_JSON_BUFFER))
     {
+    }
+
+    bool init()
+    {
+      switch (server.method())
+      {
+        case HTTP_GET:
+        {
+          if (!parseArg("ClientID", clientID))
+          {
+            // TODO optional/required?
+            // return false;
+          }
+          if (!parseArg("ClientTransactionID", clientTransactionID))
+          {
+            // TODO optional/required?
+            // return false;
+          }
+          break;
+        }
+
+        case HTTP_PUT:
+        {
+          if (!server.hasArg("plain"))
+          {
+            sendInvalidRequestError("Body not received");
+            return false;
+          }
+
+          jsonParamsBuffer = server.arg("plain");
+          // Warning: this performs a no-copy deserialization, using string pointers into the jsonParamsBuffer.
+          // jsonParams becomes invalid if the string is modified.
+          DeserializationError result = deserializeJson(jsonParams, jsonParamsBuffer.c_str());
+          if (result != DeserializationError::Ok)
+          {
+            sendInvalidRequestError(result.c_str());
+            return false;
+          }
+
+          if (!parseJsonArg("ClientID", clientID))
+          {
+            // TODO optional/required?
+            // return false;
+          }
+          if (!parseJsonArg("ClientTransactionID", clientTransactionID))
+          {
+            // TODO optional/required?
+            // return false;
+          }
+          break;
+        }
+
+        default:
+          sendInvalidRequestError("Method '" + String(server.method()) + "' not implemented");
+          return false;
+      }
+
+      return true;
     }
 
     void setError(int _errorCode, const String& _errorMessage)
     {
       errorCode = _errorCode;
       errorMessage = _errorMessage;
+    }
+
+    template<typename T>
+    bool parseJsonArg(const String& argName, T& valueOut)
+    {
+      JsonVariantConst jsonVar = jsonParams.getMember(argName);
+      if (jsonVar.isNull())
+      {
+        sendInvalidRequestError("Body does not contain field '" + argName + "'");
+        return false;
+      }
+      if (!jsonVar.is<T>())
+      {
+        sendInvalidRequestError("Field '" + argName + "' has incorrect type");
+        return false;
+      }
+      valueOut = jsonVar.as<T>();
+      return true;
     }
 
     bool executeCommand(const char* cmd, char* result)
@@ -220,60 +261,33 @@ namespace Alpaca
 
     void send()
     {
-      body["ClientTransactionID"] = clientTransactionID;
-      body["ServerTransactionID"] = 54321; // TODO how to generate this?
+      jsonBody["ClientTransactionID"] = clientTransactionID;
+      jsonBody["ServerTransactionID"] = 54321; // TODO how to generate this?
 
       String json;
-      serializeJson(body, json);
+      serializeJson(jsonBody, json);
       server.send(200, "application/json", json);
     }
 
     void sendWithError()
     {
-      body["ClientTransactionID"] = clientTransactionID;
-      body["ServerTransactionID"] = 54321; // TODO how to generate this?
-      body["ErrorNumber"] = errorCode;
-      body["ErrorMessage"] = errorMessage;
+      jsonBody["ClientTransactionID"] = clientTransactionID;
+      jsonBody["ServerTransactionID"] = 54321; // TODO how to generate this?
+      jsonBody["ErrorNumber"] = errorCode;
+      jsonBody["ErrorMessage"] = errorMessage;
 
       String json;
-      serializeJson(body, json);
+      serializeJson(jsonBody, json);
       server.send(200, "application/json", json);
     }
 
-    bool initGet()
-    {
-      if (!parseArg("ClientID", clientID))
-      {
-        // TODO optional/required?
-        // return false;
-      }
-      if (!parseArg("ClientTransactionID", clientTransactionID))
-      {
-        // TODO optional/required?
-        // return false;
-      }
-      return true;
-    }
-
-    bool initPut(const JsonDocument& params)
-    {
-      if (!parseJsonArg(params, "ClientID", clientID))
-      {
-        // TODO optional/required?
-        // return false;
-      }
-      if (!parseJsonArg(params, "ClientTransactionID", clientTransactionID))
-      {
-        // TODO optional/required?
-        // return false;
-      }
-      return true;
-    }
-
   public:
-    DynamicJsonDocument body;
+    DynamicJsonDocument jsonParams;
+    DynamicJsonDocument jsonBody;
 
   private:
+    String jsonParamsBuffer;
+
     int clientID = 1;
     int clientTransactionID = 1234;
     int errorCode = (int)ErrorCode::None;
@@ -300,41 +314,44 @@ namespace Alpaca
   void handleAlpacaApiVersions()
   {
     AlpacaResponse r;
-    r.initGet();
+    if (r.init())
+    {
+      JsonArray value = r.jsonBody.createNestedArray("Value");
+      value.add(1);
 
-    JsonArray value = r.body.createNestedArray("Value");
-    value.add(1);
-
-    r.send();
+      r.send();
+    }
   }
 
   void handleAlpacaDescription()
   {
     AlpacaResponse r;
-    r.initGet();
+    if (r.init())
+    {
+      JsonObject value = r.jsonBody.createNestedObject("Value");
+      value["ServerName"] = ServerName;
+      value["Manufacturer"] = Manufacturer;
+      value["ManufacturerVersion"] = ManufacturerVersion;
+      value["Location"] = Location;
 
-    JsonObject value = r.body.createNestedObject("Value");
-    value["ServerName"] = ServerName;
-    value["Manufacturer"] = Manufacturer;
-    value["ManufacturerVersion"] = ManufacturerVersion;
-    value["Location"] = Location;
-
-    r.send();
+      r.send();
+    }
   }
 
   void handleAlpacaConfiguredDevices()
   {
     AlpacaResponse r;
-    r.initGet();
+    if (r.init())
+    {
+      JsonArray value = r.jsonBody.createNestedArray("Value");
+      JsonObject jsonTelescope = value.createNestedObject();
+      jsonTelescope["DeviceName"] = "Telescope";
+      jsonTelescope["DeviceType"] = "telescope";
+      jsonTelescope["DeviceNumber"] = 0;
+      jsonTelescope["UniqueID"] = "9f90f379-114c-428f-a08e-852f51b3487e";
 
-    JsonArray value = r.body.createNestedArray("Value");
-    JsonObject jsonTelescope = value.createNestedObject();
-    jsonTelescope["DeviceName"] = "Telescope";
-    jsonTelescope["DeviceType"] = "telescope";
-    jsonTelescope["DeviceNumber"] = 0;
-    jsonTelescope["UniqueID"] = "9f90f379-114c-428f-a08e-852f51b3487e";
-
-    r.send();
+      r.send();
+    }
   }
 
   void handleAlpacaTargetDeclination()
@@ -342,36 +359,34 @@ namespace Alpaca
     if (server.method() == HTTP_GET)
     {
       AlpacaResponse r;
-      r.initGet();
-
-      // Get Currently Selected Target Declination
-      char temp[40] = "";
-      if (r.executeCommandChecked(":Gd#", temp))
+      if (r.init())
       {
-        double value;
-        if (!dmsToDouble(&value, temp, true))
+        // Get Currently Selected Target Declination
+        char temp[40] = "";
+        if (r.executeCommandChecked(":Gd#", temp))
         {
-          r.setError(ErrorCode::InvalidValue, "Cannot convert value");
+          double value;
+          if (!dmsToDouble(&value, temp, true))
+          {
+            r.setError(ErrorCode::InvalidValue, "Cannot convert value");
+          }
+          else
+          {
+            r.jsonBody["Value"] = value;
+          }
         }
-        else
-        {
-          r.body["Value"] = value;
-        }
-      }
 
-      r.sendWithError();
+        r.sendWithError();
+      }
     }
     else if (server.method() == HTTP_PUT)
     {
-      DynamicJsonDocument body(DEFAULT_JSON_BUFFER);
-      if (deserializeJsonBody(body))
+      AlpacaResponse r;
+      if (r.init())
       {
         double value;
-        if (parseJsonArg(body, "TargetDeclination", value))
+        if (r.parseJsonArg("TargetDeclination", value))
         {
-          AlpacaResponse r;
-          r.initPut(body);
-
           char cmd[40], temp[40]="";
           doubleToDms(temp, &value, false, true);
           sprintf(cmd, ":Sd%s#", temp);
