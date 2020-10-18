@@ -108,3 +108,6 @@ const char html_ajax_active[] PROGMEM =
   "}"
 "}\n"
 "</script>\n";
+  
+enum PrecisionMode {PM_LOW, PM_HIGH, PM_HIGHEST};
+PrecisionMode precision = PM_HIGH;

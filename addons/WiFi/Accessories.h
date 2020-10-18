@@ -2,13 +2,30 @@
 // Misc functions to help with commands, etc.
 #pragma once
 
-// integer numeric conversion with error checking
-boolean atoi2(char *a, int *i) {
-  char *conv_end;
-  long l=strtol(a,&conv_end,10);
-  
-  if ((l<-32767) || (l>32768) || (&a[0]==conv_end)) return false;
+// string to int with error checking
+bool atoi2(char *a, int *i, bool sign=true) {
+  int len=strlen(a);
+  if (len == 0 || len > 6) return false;
+  for (int l=0; l < len; l++) {
+    if ((l == 0) && ((a[l] == '+') || (a[l] == '-')) && sign) continue;
+    if ((a[l] < '0') || (a[l] > '9')) return false;
+  }
+  long l=atol(a);
+  if ((l < -32767) || (l > 32768)) return false;
   *i=l;
+  return true;
+}
+
+// string to float with error checking
+bool atof2(char *a, double *d, bool sign=true) {
+  int dc=0;
+  int len=strlen(a);
+  for (int l=0; l < len; l++) {
+    if ((l == 0) && ((a[l] == '+') || (a[l] == '-')) && sign) continue;
+    if (a[l] == '.') { if (dc == 0) { dc++; continue; } else return false; }
+    if ((a[l] < '0') || (a[l] > '9')) return false;
+  }
+  *d=atof(a);
   return true;
 }
 
@@ -149,6 +166,65 @@ char *commandString(const char command[]) {
   int l=strlen(response)-1; if (l >= 0 && response[l] == '#') response[l]=0;
   if (!success) strcpy(response,"?");
   return response;
+}
+
+// convert string in format sDD:MM:SS to double
+// (also handles)           sDD:MM:SS.SSS
+//                          DDD:MM:SS
+//                          sDD:MM
+//                          DDD:MM
+//                          sDD*MM
+//                          DDD*MM
+bool dmsToDouble(double *f, char *dms, bool sign_present, PrecisionMode p) {
+  char d[4],m[5];
+  int d1,m1,lowLimit=0,highLimit=360,len;
+  double s1=0,sign=1;
+  bool secondsOff=false;
+
+  while (*dms == ' ') dms++; // strip prefix white-space
+  if (strlen(dms) > 13) dms[13]=0; // maximum length
+  len=strlen(dms);
+
+  if (p == PM_HIGHEST || p == PM_HIGH) { // validate length
+    if (len != 9 && len < 11) return false;
+  } else
+  if (p == PM_LOW) {
+    if (len != 6) {
+      if (len != 9) return false;
+      secondsOff=false;
+    } else secondsOff = true;
+  }
+
+  // determine if the sign was used and accept it if so, then convert the degrees part
+  if (sign_present) {
+    if (*dms == '-') sign=-1.0; else if (*dms == '+') sign=1.0; else return false; 
+    dms++; d[0]=*dms++; d[1]=*dms++; d[2]=0; if (!atoi2(d,&d1,false)) return false;
+  } else {
+    d[0]=*dms++; d[1]=*dms++; d[2]=*dms++; d[3]=0; if (!atoi2(d,&d1,false)) return false;
+  }
+
+  // make sure the seperator is an allowed character, then convert the minutes part
+  if (*dms != ':' && *dms != '*' && *dms != char(223)) return false; else dms++;
+  m[0]=*dms++; m[1]=*dms++; m[2]=0; if (!atoi2(m,&m1,false)) return false;
+
+  if ((p == PM_HIGHEST || p == PM_HIGH) && !secondsOff) {
+    // make sure the seperator is an allowed character, then convert the seconds part
+    if (*dms++ != ':' && *dms++ != '\'') return false;
+    if (!atof2(dms,&s1,false)) return false;
+  }
+
+  if (sign_present) { lowLimit=-90; highLimit=90; }
+  if ((d1 < lowLimit) || (d1 > highLimit) || (m1 < 0) || (m1 > 59) || (s1 < 0) || (s1 > 59.999)) return false;
+
+  *f=sign*((double)d1+(double)m1/60.0+s1/3600.0);
+  return true;
+}
+
+bool dmsToDouble(double *f, char *dms, bool sign_present) {
+  if (!dmsToDouble(f,dms,sign_present,PM_HIGHEST))
+    if (!dmsToDouble(f,dms,sign_present,PM_HIGH))
+      if (!dmsToDouble(f,dms,sign_present,PM_LOW)) return false;
+  return true;
 }
 
 boolean doubleToDms(char *reply, double *f, boolean fullRange, boolean signPresent) {

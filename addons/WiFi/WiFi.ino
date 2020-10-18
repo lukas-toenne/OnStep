@@ -55,6 +55,7 @@
 #endif
 #include <EEPROM.h>
 #include "EEProm.h"
+#include <ArduinoJson.h>
 
 #define DEBUG_OFF   // Turn _ON to allow web and cmd channel servers to startup without OnStep (Serial port for debug at 115200 baud)
 
@@ -391,7 +392,9 @@ TryAgain:
   server.on("/pec.htm", handlePec);
   server.on("/pec.txt", pecAjax);
   server.on("/wifi.htm", handleWifi);
-  
+
+  setupAlpacaURIHandlers();
+
   server.onNotFound(handleNotFound);
 
 #if STANDARD_COMMAND_CHANNEL == ON
