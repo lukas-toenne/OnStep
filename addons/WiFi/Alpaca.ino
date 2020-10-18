@@ -69,16 +69,26 @@ namespace Alpaca
     ValueNotSet = 0x80040402,
   };
 
-  uint commandErrorToCode(int commandError)
+  int commandErrorToCode(int commandError)
   {
     switch (commandError)
     {
-      CE_NONE : return ErrorCode::None;
-      CE_0 : return ErrorCode::None;
-      CE_CMD_UNKNOWN : return ErrorCode::UnspecifiedError;
-      CE_NULL : return ErrorCode::UnspecifiedError;
+      case CE_NONE : return ErrorCode::None;
+      case CE_0 : return ErrorCode::None;
+      case CE_NULL : return ErrorCode::UnspecifiedError;
 
-      default: return (uint)ErrorCode::DriverBase + (uint)commandError - 1;
+      default: return (int)ErrorCode::DriverBase + commandError - 1;
+    }
+  }
+
+  const char* commandErrorToString(int commandError)
+  {
+    switch (commandError)
+    {
+      case CE_NONE : return "";
+      case CE_0 : return "";
+
+      default: return commandErrorToStr(commandError);
     }
   }
 
@@ -164,7 +174,7 @@ namespace Alpaca
     {
     }
 
-    void setError(uint _errorCode, const String& _errorMessage)
+    void setError(int _errorCode, const String& _errorMessage)
     {
       errorCode = _errorCode;
       errorMessage = _errorMessage;
@@ -204,7 +214,7 @@ namespace Alpaca
         setError(ErrorCode::UnspecifiedError, "Cannot interpret command error");
         return false;
       }
-      setError(commandErrorToCode(cmderr), commandErrorToStr(cmderr));
+      setError(commandErrorToCode(cmderr), commandErrorToString(cmderr));
       return errorCode != (int)ErrorCode::None;
     }
 
@@ -266,7 +276,7 @@ namespace Alpaca
   private:
     int clientID = 1;
     int clientTransactionID = 1234;
-    uint errorCode = (uint)ErrorCode::None;
+    int errorCode = (int)ErrorCode::None;
     String errorMessage = "";
   };
 
