@@ -159,6 +159,11 @@ namespace Alpaca
   class AlpacaResponse
   {
   public:
+    AlpacaResponse()
+      : body(DynamicJsonDocument(DEFAULT_JSON_BUFFER))
+    {
+    }
+
     void setError(uint _errorCode, const String& _errorMessage)
     {
       errorCode = _errorCode;
@@ -203,25 +208,25 @@ namespace Alpaca
       return errorCode != (int)ErrorCode::None;
     }
 
-    void send(JsonDocument& doc)
+    void send()
     {
-      doc["ClientTransactionID"] = clientTransactionID;
-      doc["ServerTransactionID"] = 54321; // TODO how to generate this?
+      body["ClientTransactionID"] = clientTransactionID;
+      body["ServerTransactionID"] = 54321; // TODO how to generate this?
 
       String json;
-      serializeJson(doc, json);
+      serializeJson(body, json);
       server.send(200, "application/json", json);
     }
 
-    void sendWithError(JsonDocument& doc)
+    void sendWithError()
     {
-      doc["ClientTransactionID"] = clientTransactionID;
-      doc["ServerTransactionID"] = 54321; // TODO how to generate this?
-      doc["ErrorNumber"] = errorCode;
-      doc["ErrorMessage"] = errorMessage;
+      body["ClientTransactionID"] = clientTransactionID;
+      body["ServerTransactionID"] = 54321; // TODO how to generate this?
+      body["ErrorNumber"] = errorCode;
+      body["ErrorMessage"] = errorMessage;
 
       String json;
-      serializeJson(doc, json);
+      serializeJson(body, json);
       server.send(200, "application/json", json);
     }
 
@@ -255,6 +260,9 @@ namespace Alpaca
       return true;
     }
 
+  public:
+    DynamicJsonDocument body;
+
   private:
     int clientID = 1;
     int clientTransactionID = 1234;
@@ -281,49 +289,48 @@ namespace Alpaca
 
   void handleAlpacaApiVersions()
   {
-    DynamicJsonDocument doc(DEFAULT_JSON_BUFFER);
-    JsonArray value = doc.createNestedArray("Value");
-    value.add(1);
-
     AlpacaResponse r;
     r.initGet();
-    r.send(doc);
+
+    JsonArray value = r.body.createNestedArray("Value");
+    value.add(1);
+
+    r.send();
   }
 
   void handleAlpacaDescription()
   {
-    DynamicJsonDocument doc(DEFAULT_JSON_BUFFER);
-    JsonObject value = doc.createNestedObject("Value");
+    AlpacaResponse r;
+    r.initGet();
+
+    JsonObject value = r.body.createNestedObject("Value");
     value["ServerName"] = ServerName;
     value["Manufacturer"] = Manufacturer;
     value["ManufacturerVersion"] = ManufacturerVersion;
     value["Location"] = Location;
 
-    AlpacaResponse r;
-    r.initGet();
-    r.send(doc);
+    r.send();
   }
 
   void handleAlpacaConfiguredDevices()
   {
-    DynamicJsonDocument doc(DEFAULT_JSON_BUFFER);
-    JsonArray value = doc.createNestedArray("Value");
+    AlpacaResponse r;
+    r.initGet();
+
+    JsonArray value = r.body.createNestedArray("Value");
     JsonObject jsonTelescope = value.createNestedObject();
     jsonTelescope["DeviceName"] = "Telescope";
     jsonTelescope["DeviceType"] = "telescope";
     jsonTelescope["DeviceNumber"] = 0;
     jsonTelescope["UniqueID"] = "9f90f379-114c-428f-a08e-852f51b3487e";
 
-    AlpacaResponse r;
-    r.initGet();
-    r.send(doc);
+    r.send();
   }
 
   void handleAlpacaTargetDeclination()
   {
     if (server.method() == HTTP_GET)
     {
-      DynamicJsonDocument doc(DEFAULT_JSON_BUFFER);
       AlpacaResponse r;
       r.initGet();
 
@@ -338,11 +345,11 @@ namespace Alpaca
         }
         else
         {
-          doc["Value"] = value;
+          r.body["Value"] = value;
         }
       }
 
-      r.sendWithError(doc);
+      r.sendWithError();
     }
     else if (server.method() == HTTP_PUT)
     {
@@ -352,21 +359,20 @@ namespace Alpaca
         double value;
         if (parseJsonArg(body, "TargetDeclination", value))
         {
-          DynamicJsonDocument doc(DEFAULT_JSON_BUFFER);
           AlpacaResponse r;
           r.initPut(body);
 
           char cmd[40], temp[40]="";
           doubleToDms(temp, &value, true, true);
           sprintf(cmd, ":Sd%s#", temp);
-          doc["Raw"] = String(cmd);
+          r.body["Raw"] = String(cmd);
 
           // Set target object declination
           temp[0] = 0;
           r.executeCommandChecked(cmd, temp);
-          doc["Result"] = String(temp);
+          r.body["Result"] = String(temp);
 
-          r.sendWithError(doc);
+          r.sendWithError();
         }
       }
     }
