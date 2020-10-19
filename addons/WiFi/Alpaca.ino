@@ -38,6 +38,18 @@
 namespace Alpaca
 {
 
+  // Insert number into set command
+  void commandInsert(const char* basecmd, const char* valuestr, char* fullcmd)
+  {
+    int cmdlen = strlen(basecmd);
+    int valuelen = strlen(valuestr);
+    memcpy(fullcmd, basecmd, cmdlen-1);
+    memcpy(fullcmd+cmdlen-1, valuestr, valuelen);
+    fullcmd[cmdlen + valuelen] = '#';
+    fullcmd[cmdlen + valuelen - 1] = '#';
+    fullcmd[cmdlen + valuelen] = 0;
+  }
+
   enum ErrorCode
   {
     None = 0,
@@ -203,24 +215,6 @@ namespace Alpaca
       errorMessage = _errorMessage;
     }
 
-    template<typename T>
-    bool parseJsonArg(const String& argName, T& valueOut)
-    {
-      JsonVariantConst jsonVar = jsonParams.getMember(argName);
-      if (jsonVar.isNull())
-      {
-        sendInvalidRequestError("Body does not contain field '" + argName + "'");
-        return false;
-      }
-      if (!jsonVar.is<T>())
-      {
-        sendInvalidRequestError("Field '" + argName + "' has incorrect type");
-        return false;
-      }
-      valueOut = jsonVar.as<T>();
-      return true;
-    }
-
     bool executeCommand(const char* cmd, char* result)
     {
       if (!command(cmd, result))
@@ -257,6 +251,140 @@ namespace Alpaca
       }
       setError(commandErrorToCode(cmderr), commandErrorToString(cmderr));
       return errorCode == (int)ErrorCode::None;
+    }
+
+    template<typename T>
+    bool parseJsonArg(const String& argName, T& valueOut)
+    {
+      JsonVariantConst jsonVar = jsonParams.getMember(argName);
+      if (jsonVar.isNull())
+      {
+        sendInvalidRequestError("Body does not contain field '" + argName + "'");
+        return false;
+      }
+      if (!jsonVar.is<T>())
+      {
+        sendInvalidRequestError("Field '" + argName + "' has incorrect type");
+        return false;
+      }
+      valueOut = jsonVar.as<T>();
+      return true;
+    }
+
+    bool parseArgInt(const char* setcmd, const char* field)
+    {
+      int value;
+      if (parseJsonArg(field, value))
+      {
+        char tempcmd[40], valueStr[40], result[40];
+        sprintf(valueStr, "%d", value);
+        commandInsert(setcmd, valueStr, tempcmd);
+        executeCommandChecked(tempcmd, result);
+        return true;
+      }
+      return false;
+    }
+
+    bool parseArgFloat(const char* setcmd, const char* field)
+    {
+      double value;
+      if (parseJsonArg(field, value))
+      {
+        char tempcmd[40], valueStr[40], result[40];
+        sprintf(valueStr, "%f", value);
+        commandInsert(setcmd, valueStr, tempcmd);
+        executeCommandChecked(tempcmd, result);
+        return true;
+      }
+      return false;
+    }
+
+    bool parseArgHms(const char* setcmd, const char* field)
+    {
+      double value;
+      if (parseJsonArg(field, value))
+      {
+        char tempcmd[40], valueStr[40], result[40];
+        doubleToHms(valueStr, &value);
+        commandInsert(setcmd, valueStr, tempcmd);
+        executeCommandChecked(tempcmd, result);
+        return true;
+      }
+      return false;
+    }
+
+    bool parseArgDms(const char* setcmd, const char* field)
+    {
+      double value;
+      if (parseJsonArg(field, value))
+      {
+        char tempcmd[40], valueStr[40], result[40];
+        doubleToDms(valueStr, &value, false, true);
+        commandInsert(setcmd, valueStr, tempcmd);
+        executeCommandChecked(tempcmd, result);
+        return true;
+      }
+      return false;
+    }
+
+    bool setResultInt(const char* getcmd, const char* field, bool sign=true)
+    {
+      char valueStr[40] = "";
+      if (executeCommandChecked(getcmd, valueStr))
+      {
+        int value;
+        if (atoi2(valueStr, &value, sign))
+        {
+          jsonBody[field] = value;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool setResultFloat(const char* getcmd, const char* field, bool sign=true)
+    {
+      char valueStr[40] = "";
+      if (executeCommandChecked(getcmd, valueStr))
+      {
+        double value;
+        if (atof2(valueStr, &value, sign))
+        {
+          jsonBody[field] = value;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool setResultHms(const char* getcmd, const char* field)
+    {
+      char valueStr[40] = "";
+      if (executeCommandChecked(getcmd, valueStr))
+      {
+        double value;
+        if (hmsToDouble(&value, valueStr))
+        {
+          jsonBody[field] = value;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool setResultDms(const char* getcmd, const char* field, bool signPresent)
+    {
+      char valueStr[40] = "";
+      if (executeCommandChecked(getcmd, valueStr))
+      {
+        double value;
+        if (dmsToDouble(&value, valueStr, signPresent))
+        {
+          jsonBody[field] = value;
+          return true;
+        }
+      }
+      return false;
     }
 
     void send()
@@ -354,41 +482,6 @@ namespace Alpaca
     }
   }
 
-  void handleAlpacaTargetDeclination()
-  {
-    AlpacaResponse r;
-    if (r.init())
-    {
-      if (server.method() == HTTP_GET)
-      {
-        // Get Currently Selected Target Declination
-        char temp[40] = "";
-        if (r.executeCommandChecked(":Gd#", temp))
-        {
-          double value;
-          if (dmsToDouble(&value, temp, true))
-          {
-            r.jsonBody["Value"] = value;
-          }
-        }
-        r.sendWithError();
-      }
-      else if (server.method() == HTTP_PUT)
-      {
-        double value;
-        if (r.parseJsonArg("TargetDeclination", value))
-        {
-          // Set target object declination
-          char cmd[40], temp[40]="";
-          doubleToDms(temp, &value, false, true);
-          sprintf(cmd, ":Sd%s#", temp);
-          r.executeCommandChecked(cmd, temp);
-          r.sendWithError();
-        }
-      }
-    }
-  }
-
   void handleAlpacaTargetRightAscension()
   {
     AlpacaResponse r;
@@ -397,27 +490,35 @@ namespace Alpaca
       if (server.method() == HTTP_GET)
       {
         // Get current/target object RA
-        char temp[40] = "";
-        if (r.executeCommandChecked(":Gr#", temp))
-        {
-          double value;
-          if (hmsToDouble(&value, temp))
-          {
-            r.jsonBody["Value"] = value;
-          }
-        }
+        r.setResultHms(":Gr#", "Value");
         r.sendWithError();
       }
       else if (server.method() == HTTP_PUT)
       {
-        double value;
-        if (r.parseJsonArg("TargetRightAscension", value))
+        // Set target object RA
+        if (r.parseArgHms(":Sr#", "TargetRightAscension"))
         {
-          // Set target object RA
-          char cmd[40], temp[40]="";
-          doubleToHms(temp, &value);
-          sprintf(cmd, ":Sr%s#", temp);
-          r.executeCommandChecked(cmd, temp);
+          r.sendWithError();
+        }
+      }
+    }
+  }
+
+  void handleAlpacaTargetDeclination()
+  {
+    AlpacaResponse r;
+    if (r.init())
+    {
+      if (server.method() == HTTP_GET)
+      {
+        // Get Currently Selected Target Declination
+        r.setResultDms(":Gd#", "Value", true);
+        r.sendWithError();
+      }
+      else if (server.method() == HTTP_PUT)
+      {
+        if (r.parseArgDms(":Sd#", "TargetDeclination"))
+        {
           r.sendWithError();
         }
       }
